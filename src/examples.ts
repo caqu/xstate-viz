@@ -1,111 +1,153 @@
 import { assign } from 'xstate';
 
-const examples = {
-  omni: `Machine({
-    id: 'example',
-    initial: 'leaf',
-    states: {
-      leaf: {
-        on: {
-          NEXT: 'compound'
-        }
-      },
-      'another leaf': {
-        entry: ['one', 'two'],
-        exit: ['three', 'four'],
-        on: {
-          NEXT: {
-            target: 'compound',
-            cond: function someCondition() { return true }
+const machine = {
+  id: 'chooseImage',
+  initial: 'showing_toc',
+  context: {
+    retries: 0,
+    image_received: false
+  },
+  on: {
+    EXIT: '.exit'
+  },
+  states: {
+    showing_toc: {
+      on: {
+        ACCEPT_TOC: 'ready_to_select_image'
+      }
+    },
+    exit: {
+      type: 'final'
+    },
+    ready_to_select_image: {
+      on: {
+        WITHDRAW_TOC: 'showing_toc',
+        UPLOAD_IMAGE: [
+          {
+            cond: { type: 'image_is_valid' },
+            target: 'uploading'
           },
-          NEVER: {
-            target: 'leaf',
-            cond: function falseCondition() { return false }
+          {
+            target: '.invalid_image_selected',
+            actions: ['increment_retries']
           }
-        }
+        ]
       },
-      compound: {
-        initial: 'child 1',
-        states: {
-          'child 1': {
-            on: {
-              NEXT: 'child 2'
-            }
+      initial: 'ready',
+      states: {
+        ready: {},
+        // client-side validation
+        invalid_image_selected: {}
+      }
+    },
+    uploading: {
+      on: {
+        NETWORK_ERROR: [
+          {
+            cond: 'customer_is_stuck',
+            target: 'upload_failed.showing_retry_and_skip'
           },
-          'child 2': {
-            initial: 'subchild 1',
-            states: {
-              'subchild 1': {
-                on: { NEXT: 'subchild 2' }
-              },
-              'subchild 2': {
-                on: { NEXT: 'subchild 3', PREV: 'subchild 1' }
-              },
-              'subchild 3': {
-                type: 'final'
-              }
-            }
+          {
+            target: 'upload_failed'
           }
+        ],
+        // TODO Optional proceed to customizer without UGC. proceed_without_image
+        SERVER_REJECTION: 'ready_to_select_image.invalid_image_selected',
+        RECEIVED: {
+          target: 'selecting_style',
+          actions: ['mark_image_received']
         },
-        on: {
-          PREV: 'leaf',
-          NEXT: 'parallel',
-          INTERNAL: '.child 1'
+      }
+    },
+    // network failure or server-side validation failure
+    upload_failed: {
+      on: {
+        RETRY: {
+          target: 'uploading',
+          actions: ['increment_retries']
         }
       },
-      parallel: {
-        type: 'parallel',
-        states: {
-          foo: {},
-          bar: {
-            initial: 'one',
-            states: {
-              one: {
-                on: {
-                  NEXT: 'two'
-                }
-              },
-              two: {
-                on: {
-                  NEXT: 'three',
-                  PREV: 'two'
-                }
-              },
-              three: {
-                on: {
-                  SELF: 'three',
-                  SELF_INTERNAL: '.',
-                  PREV: 'two',
-                  CYCLE: 'one'
-                }
-              }
-            }
-          },
-          baz: {
-            initial: 'one',
-            states: {
-              one: {
-                on: {
-                  TWO_CHILD: 'two.foo'
-                }
-              },
-              two: {
-                initial: 'foo',
-                states: {
-                  foo: {},
-                  bar: {},
-                  history: {
-                    type: 'history'
-                  }
-                }
-              },
-              three: {}
+      initial: 'showing_retry',
+      states: {
+        showing_retry: {},
+        showing_retry_and_skip: {
+          on: {
+            SKIP: {
+              target: '#selecting_style'
             }
           }
         }
       }
+    },
+    selecting_style: {
+      id: "selecting_style",
+      on: {
+        SELECT_STYLE: [
+          {
+            cond: { type: 'style_has_size' },
+            target: 'selecting_size'
+          },
+          {
+            target: 'proceed'
+          }
+        ]
+      }
+    },
+    selecting_size: {
+      on: {
+        SELECT_SIZE: 'proceed'
+      }
+    },
+    proceed: {
+      initial: 'unknown',
+      states: {
+        unknown: {
+          on: {
+            '': [
+              { target: 'with_image', cond: { type: 'image_was_received' } },
+              { target: 'without_image' }
+            ]
+          }
+        },
+        without_image: {
+          type: 'final'
+        },
+        with_image: {
+          type: 'final'
+        }
+      }
     }
-  })`,
+  }
+};
+
+const options = `{
+  guards: {
+    image_is_valid: function image_is_valid (_, event) {
+      console.log('event.valid', event.valid);
+      return event.invalid === undefined;
+    },
+    customer_is_stuck: function customer_is_stuck (context) {
+      console.log('context.retries', context.retries);
+      return context.retries > 1;
+    },
+    style_has_size: function style_has_size (_, event) {
+      return event.has_styles === true;
+    },
+    image_was_received: function image_was_received (context) {
+      return context.image_received === true;
+    }
+  },
+  actions: {
+    increment_retries: assign({
+      retries: (context) => context.retries + 1
+    }),
+    mark_image_received: assign({
+      image_received: true
+    }),
+  }
+}`;
+
+const examples = {
   basic: `
   // Available variables:
   // - Machine
@@ -117,40 +159,8 @@ const examples = {
   // - raise
   // - actions
   // - XState (all XState exports)
-  
-  const fetchMachine = Machine({
-    id: 'fetch',
-    initial: 'idle',
-    context: {
-      retries: 0
-    },
-    states: {
-      idle: {
-        on: {
-          FETCH: 'loading'
-        }
-      },
-      loading: {
-        on: {
-          RESOLVE: 'success',
-          REJECT: 'failure'
-        }
-      },
-      success: {
-        type: 'final'
-      },
-      failure: {
-        on: {
-          RETRY: {
-            target: 'loading',
-            actions: assign({
-              retries: (context, event) => context.retries + 1
-            })
-          }
-        }
-      }
-    }
-  });
+
+  const chooseImageMachine = Machine(${JSON.stringify(machine)}, ${options});
   `
 };
 
