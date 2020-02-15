@@ -27,7 +27,7 @@ export function Header() {
   return (
     <StyledHeader>
       <StyledLogo />
-      <StyledLinks>
+      {/* <StyledLinks>
         <StyledLink
           href="https://github.com/davidkpiano/xstate"
           target="_xstate-github"
@@ -46,7 +46,7 @@ export function Header() {
         <StyledLink href="https://opencollective.com/xstate" target="_sponsor">
           Sponsor 💙
         </StyledLink>
-      </StyledLinks>
+      </StyledLinks> */}
     </StyledHeader>
   );
 }

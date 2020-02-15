@@ -606,7 +606,7 @@ export function App() {
     <StyledApp data-layout={layout} data-embed={query.embed}>
       <Notifications notifier={notificationsActor} />
       <AppContext.Provider value={{ state: current, send, service }}>
-        <User />
+        {/* <User /> */}
         <Header />
         {current.matches({ gist: 'fetching' }) ? (
           <Loader />

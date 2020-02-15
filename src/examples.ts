@@ -9,9 +9,6 @@ const machine = {
     EXIT: '.exit'
   },
   states: {
-    exit: {
-      type: 'final'
-    },
     selecting_image: {
       initial: 'waiting_for_toc_acceptance',
       states: {
@@ -54,6 +51,9 @@ const machine = {
           }
         }
       }
+    },
+    exit: {
+      type: 'final'
     },
     uploading_image: {
       id: 'uploading_image',

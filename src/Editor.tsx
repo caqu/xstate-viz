@@ -62,7 +62,7 @@ export const Editor: React.FunctionComponent<EditorProps> = props => {
         readOnly={!onChange}
         wrapEnabled
       />
-      <StyledButtons>
+      {/* <StyledButtons>
         <StyledButton
           data-variant="secondary"
           disabled={isSaving}
@@ -101,7 +101,7 @@ export const Editor: React.FunctionComponent<EditorProps> = props => {
             ? 'Logging in...'
             : 'Login to save'}
         </StyledButton>
-      </StyledButtons>
+      </StyledButtons> */}
     </StyledEditor>
   );
 };
